@@ -597,7 +597,6 @@ def call_anthropic(system_prompt: str, user_prompt: str, model: str) -> str:
             response = client.messages.create(
                 model=model,
                 max_tokens=8192,
-                temperature=0.0,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )

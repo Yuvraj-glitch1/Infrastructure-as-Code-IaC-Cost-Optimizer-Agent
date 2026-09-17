@@ -141,7 +141,7 @@ resource "aws_instance" "app_server" {
 
   root_block_device {
     volume_type = "gp2" # legacy, more expensive than gp3 for equivalent IOPS
-    volume_size = 200   # oversized for a dev app server
+    volume_size = 250   # oversized for a dev app server
   }
 
   tags = {
