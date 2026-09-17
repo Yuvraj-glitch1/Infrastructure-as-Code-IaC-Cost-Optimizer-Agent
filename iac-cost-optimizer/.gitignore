@@ -1,0 +1,14 @@
+# .gitignore
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+*.pre-optimizer.bak
+.terraform.lock.hcl
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+infracost-*.json

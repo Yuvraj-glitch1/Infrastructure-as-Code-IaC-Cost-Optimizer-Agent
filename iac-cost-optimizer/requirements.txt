@@ -1,0 +1,8 @@
+# requirements.txt
+anthropic>=0.39.0
+openai>=1.54.0
+
+# Optional: only needed if you swap optimizer.py's direct SDK calls for LangChain.
+# langchain-core>=0.3.0
+# langchain-anthropic>=0.3.0
+# langchain-openai>=0.2.0
