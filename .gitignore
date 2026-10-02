@@ -12,3 +12,6 @@ __pycache__/
 venv/
 .env
 infracost-*.json
+desktop.ini
+infracost.exe
+.infracost/

@@ -33,19 +33,19 @@ variable "ec2_ami_id" {
 variable "ec2_instance_type" {
   description = "Instance type for the primary application server."
   type        = string
-  default     = "t2.2xlarge" # 8 vCPU / 32 GiB - grossly oversized for a dev web app
+  default     = "t3.medium" # right-sized burstable instance for dev
 }
 
 variable "worker_instance_type" {
   description = "Instance type for the background worker node."
   type        = string
-  default     = "m5.4xlarge" # 16 vCPU / 64 GiB - grossly oversized for a dev worker
+  default     = "t3.large" # right-sized burstable instance for dev
 }
 
 variable "rds_instance_class" {
   description = "Instance class for the RDS Postgres instances."
   type        = string
-  default     = "db.m5.2xlarge" # oversized for a dev database
+  default     = "db.t3.medium" # right-sized dev DB instance
 }
 
 variable "db_username" {

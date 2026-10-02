@@ -1,8 +1,3 @@
-# terraform/main.tf
-# Intentionally over-provisioned baseline infrastructure.
-# This represents the "bad" starting state that the AI Cost Optimizer Agent
-# is expected to detect and rewrite into a cheaper, right-sized equivalent.
-
 terraform {
   required_version = ">= 1.5.0"
 
@@ -128,20 +123,18 @@ resource "aws_security_group" "db" {
 }
 
 # ---------------------------------------------------------------------------
-# EC2 - INTENTIONALLY OVER-PROVISIONED
-# A t2.2xlarge (8 vCPU / 32GB RAM) running a "dev" environment web app.
-# This is the primary cost driver the optimizer agent should flag.
+# EC2 - RIGHT-SIZED FOR DEV
 # ---------------------------------------------------------------------------
 
 resource "aws_instance" "app_server" {
   ami                    = var.ec2_ami_id
-  instance_type          = var.ec2_instance_type # defaults to t2.2xlarge - WAY oversized for dev
+  instance_type          = var.ec2_instance_type
   subnet_id              = aws_subnet.primary.id
   vpc_security_group_ids = [aws_security_group.app.id]
 
   root_block_device {
-    volume_type = "gp2" # legacy, more expensive than gp3 for equivalent IOPS
-    volume_size = 200   # oversized for a dev app server
+    volume_type = "gp3" # switched to gp3 (cheaper) and reduced size
+    volume_size = 30    # reduced from 250GB to 30GB
   }
 
   tags = {
@@ -150,17 +143,15 @@ resource "aws_instance" "app_server" {
   }
 }
 
-# A second, always-on large instance for "background workers" that in a dev
-# environment realistically sits idle most of the time.
 resource "aws_instance" "worker" {
   ami                    = var.ec2_ami_id
-  instance_type          = var.worker_instance_type # defaults to m5.4xlarge
+  instance_type          = var.worker_instance_type
   subnet_id              = aws_subnet.secondary.id
   vpc_security_group_ids = [aws_security_group.app.id]
 
   root_block_device {
-    volume_type = "gp2"
-    volume_size = 100
+    volume_type = "gp3" # switched to gp3 (cheaper) and reduced size
+    volume_size = 30    # reduced from 100GB to 30GB
   }
 
   tags = {
@@ -170,9 +161,7 @@ resource "aws_instance" "worker" {
 }
 
 # ---------------------------------------------------------------------------
-# RDS - INTENTIONALLY OVER-PROVISIONED
-# Multi-AZ, large instance class, high provisioned IOPS storage for a
-# workload that (per environment tag) is "dev".
+# RDS - RIGHT-SIZED FOR DEV
 # ---------------------------------------------------------------------------
 
 resource "aws_db_instance" "primary" {
@@ -180,41 +169,25 @@ resource "aws_db_instance" "primary" {
   engine         = "postgres"
   engine_version = "15.4"
 
-  instance_class    = var.rds_instance_class # defaults to db.m5.2xlarge - oversized for dev
-  allocated_storage = 500                    # GB, oversized
-  storage_type      = "io1"                  # provisioned IOPS - expensive, unnecessary for dev
-  iops              = 5000
+  instance_class    = var.rds_instance_class
+  allocated_storage = 20    # reduced from 500GB to 20GB
+  storage_type      = "gp3" # switched from provisioned IOPS to gp3
+  # iops removed – not needed for gp3
 
-  multi_az            = true # unnecessary redundancy cost for a dev environment
-  db_subnet_group_name = aws_db_subnet_group.main.name
+  multi_az               = false # removed unnecessary Multi-AZ for dev
+  db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.db.id]
 
   db_name  = "appdb"
   username = var.db_username
   password = var.db_password
 
-  backup_retention_period = 30 # excessive for dev
+  backup_retention_period = 7 # reduced from 30 days
   skip_final_snapshot     = true
   deletion_protection     = false
 
   tags = {
     Name        = "${var.project_name}-db"
-    Environment = var.environment
-  }
-}
-
-# A read replica that is almost certainly unnecessary in a dev environment.
-resource "aws_db_instance" "replica" {
-  identifier          = "${var.project_name}-db-replica"
-  replicate_source_db = aws_db_instance.primary.identifier
-  instance_class      = var.rds_instance_class
-  storage_type         = "io1"
-  iops                  = 5000
-  publicly_accessible  = false
-  skip_final_snapshot  = true
-
-  tags = {
-    Name        = "${var.project_name}-db-replica"
     Environment = var.environment
   }
 }
