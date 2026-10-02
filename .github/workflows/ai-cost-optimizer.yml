@@ -21,7 +21,7 @@ concurrency:
 env:
   TERRAFORM_DIR: terraform
   LLM_PROVIDER: groq
-  LLM_MODEL: llama-3.3-70b-versatile
+  LLM_MODEL: openai/gpt-oss-120b
 
 jobs:
   optimize:

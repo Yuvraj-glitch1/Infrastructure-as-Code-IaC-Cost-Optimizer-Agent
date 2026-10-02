@@ -44,7 +44,7 @@ MAX_BACKOFF_SECONDS: Final[float] = 60.0
 TOP_COST_DRIVERS: Final[int] = 12
 DEFAULT_ANTHROPIC_MODEL: Final[str] = "claude-sonnet-4-5"
 DEFAULT_OPENAI_MODEL: Final[str] = "gpt-4o"
-DEFAULT_GROQ_MODEL: Final[str] = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_MODEL: Final[str] = "openai/gpt-oss-120b"
 BACKUP_SUFFIX: Final[str] = ".pre-optimizer.bak"
 
 Provider = Literal["anthropic", "openai", "groq"]
