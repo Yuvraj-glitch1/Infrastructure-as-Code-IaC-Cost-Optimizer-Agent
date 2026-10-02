@@ -44,9 +44,10 @@ MAX_BACKOFF_SECONDS: Final[float] = 60.0
 TOP_COST_DRIVERS: Final[int] = 12
 DEFAULT_ANTHROPIC_MODEL: Final[str] = "claude-sonnet-4-5"
 DEFAULT_OPENAI_MODEL: Final[str] = "gpt-4o"
+DEFAULT_GROQ_MODEL: Final[str] = "llama-3.3-70b-versatile"
 BACKUP_SUFFIX: Final[str] = ".pre-optimizer.bak"
 
-Provider = Literal["anthropic", "openai"]
+Provider = Literal["anthropic", "openai", "groq"]
 
 logger: Final[logging.Logger] = logging.getLogger("iac-cost-optimizer")
 
@@ -670,6 +671,54 @@ def call_openai(system_prompt: str, user_prompt: str, model: str) -> str:
     raise LLMError(f"OpenAI request failed after retries: {last_exc}") from last_exc
 
 
+def call_groq(system_prompt: str, user_prompt: str, model: str) -> str:
+    """Call Groq's free, OpenAI-compatible Chat Completions API with exponential backoff."""
+    try:
+        from openai import OpenAI
+    except ImportError as exc:  # pragma: no cover
+        raise LLMError(
+            "The `openai` package is not installed. Run: pip install openai"
+        ) from exc
+
+    api_key: str | None = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise LLMError("GROQ_API_KEY is not set in the environment.")
+
+    client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+    backoff: float = INITIAL_BACKOFF_SECONDS
+    last_exc: BaseException | None = None
+
+    for attempt in range(1, MAX_LLM_ATTEMPTS + 1):
+        try:
+            logger.info("Groq call, attempt %d/%d", attempt, MAX_LLM_ATTEMPTS)
+            response = client.chat.completions.create(
+                model=model,
+                temperature=0.0,
+                max_tokens=8192,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            text: str | None = response.choices[0].message.content
+            if not text or not text.strip():
+                raise LLMError("Groq returned an empty response body.")
+            return text
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt == MAX_LLM_ATTEMPTS or not _is_retryable(exc):
+                break
+            logger.warning(
+                "Retryable error (%s). Sleeping %.1fs before retry.",
+                type(exc).__name__,
+                backoff,
+            )
+            time.sleep(backoff)
+            backoff = min(backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF_SECONDS)
+
+    raise LLMError(f"Groq request failed after retries: {last_exc}") from last_exc
+
+
 def invoke_llm(
     provider: Provider, system_prompt: str, user_prompt: str, model: str | None
 ) -> str:
@@ -677,7 +726,9 @@ def invoke_llm(
         return call_anthropic(system_prompt, user_prompt, model or DEFAULT_ANTHROPIC_MODEL)
     if provider == "openai":
         return call_openai(system_prompt, user_prompt, model or DEFAULT_OPENAI_MODEL)
-    raise LLMError(f"Unknown provider: {provider}")
+    if provider == "groq":
+        return call_groq(system_prompt, user_prompt, model or DEFAULT_GROQ_MODEL)
+    raise LLMError(f"Unknown provider: {provider}")    
 
 
 # ---------------------------------------------------------------------------
@@ -868,7 +919,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--provider",
-        choices=("anthropic", "openai"),
+        choices=("anthropic", "openai", "groq"),
         default=os.environ.get("LLM_PROVIDER", "anthropic"),
         help="LLM provider to use.",
     )
